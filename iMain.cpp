@@ -113,7 +113,7 @@ void iDraw()
     }
     if(gamestate==stateAbout)
     {
-        iShowLoadedImage(0, 0, &p);
+       // iShowLoadedImage(0, 0, &p);
         iSetColor(255,255,255);
         iText(200, 650, "About");
         iSetColor(0,0,0);
@@ -154,7 +154,7 @@ void iDraw()
     }
     if(gamestate==stateEasy)
     {
-        iShowLoadedImage(0, 0, &p2);
+        //iShowLoadedImage(0, 0, &p2);
         iSetColor(61,132,188);
         iFilledRectangle(200, 500, 150, 45);
         iSetColor(255,255,255);
@@ -170,7 +170,7 @@ void iDraw()
     }
     if(gamestate==stateMedium)
     {
-        iShowLoadedImage(0, 0, &p2);
+       // iShowLoadedImage(0, 0, &p2);
         iSetColor(61,132,188);
         iFilledRectangle(200, 500, 150, 45);
         iSetColor(255,255,255);
@@ -186,7 +186,7 @@ void iDraw()
     }
     if(gamestate==stateHard)
     {
-        iShowLoadedImage(0, 0, &p2);
+       // iShowLoadedImage(0, 0, &p2);
         iSetColor(61,132,188);
         iFilledRectangle(200, 500, 150, 45);
         iSetColor(255,255,255);
