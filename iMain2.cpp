@@ -278,7 +278,6 @@ void floatingBubbles ()
 
 }
 
-
 void updateGame() 
 {
     if (shooterB.isMoving) 
@@ -341,9 +340,9 @@ void updateGame()
 
 void drawTrajectory() 
 {
-    printf("Trajectory called before return\n");
+   // printf("Trajectory called before return\n");
     // if (shooterB.isMoving) return;
-    printf("Trajectory called\n");
+    //printf("Trajectory called\n");
 
     double temp_x = SHOOTER_X;
     double temp_y = SHOOTER_Y;
@@ -401,57 +400,10 @@ void drawTrajectory()
     iLine(start_x, start_y, temp_x, temp_y);
 }
 
-
-void initializeGame(int difficulty) 
-{
-    score = 0;
-    
-    if (difficulty == 5) 
-    { 
-        initializeGrid(level1_map); 
-    } 
-    else if (difficulty == 7) 
-    {   
-
-    } 
-    else if (difficulty == 9) 
-    {    
-
-    }
-
-    nextB.bDes = B1; 
-    Shooter();
-    gamestate = statePlay;
-
-    if (gameTimerId) iPauseTimer(gameTimerId);
-    gameTimerId = iSetTimer(16, updateGame);
-}
-
-
-/*
-function iDraw() is called again and again by the system.
-*/
 void iDraw()
 {
-    // place your drawing codes here
-    /*Image load, bg, p, p2,L1,L2,L3;
-    iLoadImage(&load, "image/load.jpg");
-    iResizeImage(&load, 600, 620);
-    iLoadImage(&bg, "image/bg2.jpg");
-    iResizeImage(&bg, 600, 620);
-    iLoadImage(&p, "image/Rabbit.jpg");
-    iResizeImage(&p, 600, 620);
-    iLoadImage(&p2, "image/2.jpeg");
-    iResizeImage(&p2, 600, 620);
-    iLoadImage(&L1, "image/5.jpeg");
-    iResizeImage(&L1, 600, 620);
-    iLoadImage(&L2, "image/3.jpeg");
-    iResizeImage(&L2, 600, 620);
-    iLoadImage(&L3, "image/4.jpeg");
-    iResizeImage(&L3, 600, 620);*/
     iClear();
-    //iText(140, 180, "Hello World");
-     if (limg == 1)
+    if (limg == 1)
     {
         iShowLoadedImage(0, 0, &load);
     }
@@ -587,7 +539,6 @@ void iDraw()
     if(gamestate==statePlay)
     {
         //iShowLoadImage(0,0,& );
-        
     for (int r = 0; r < g_row; r++) 
     {
         for (int c = 0; c < g_col; c++) 
@@ -599,8 +550,6 @@ void iDraw()
         }
     }
 
-
-
    drawTrajectory();
 
     //iShowLoadedImage(SHOOTER_X - 20, SHOOTER_Y - 20, &shooterImage);
@@ -611,10 +560,32 @@ void iDraw()
     }
 }
 
-/*
-function iMouseMove() is called when the user moves the mouse.
-(mx, my) is the position where the mouse pointer is.
-*/
+
+void initializeGame(int difficulty) 
+{
+    score = 0;
+    
+    if (difficulty == 5) 
+    { 
+        initializeGrid(level1_map); 
+    } 
+    else if (difficulty == 7) 
+    {   
+        initializeGrid(level1_map);
+    } 
+    else if (difficulty == 9) 
+    {    
+        initializeGrid(level1_map);
+    }
+
+    nextB.bDes = B1; 
+    Shooter();
+    gamestate = statePlay;
+
+    if (gameTimerId) iPauseTimer(gameTimerId);
+    gameTimerId = iSetTimer(16, updateGame);
+}
+
 void iMouseMove(int mx, int my)
 {
     // place your codes here
@@ -630,19 +601,11 @@ void iMouseMove(int mx, int my)
 
 }
 
-/*
-function iMouseDrag() is called when the user presses and drags the mouse.
-(mx, my) is the position where the mouse pointer is.
-*/
 void iMouseDrag(int mx, int my)
 {
     // place your codes here
 }
 
-/*
-function iMouse() is called when the user presses/releases the mouse.
-(mx, my) is the position where the mouse pointer is.
-*/
 void iMouse(int button, int state, int mx, int my)
 {
     if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN)
@@ -719,19 +682,11 @@ void iMouse(int button, int state, int mx, int my)
     }*/
 }
 
-/*
-function iMouseWheel() is called when the user scrolls the mouse wheel.
-dir = 1 for up, -1 for down.
-*/
 void iMouseWheel(int dir, int mx, int my)
 {
     // place your code here
 }
 
-/*
-function iKeyboard() is called whenever the user hits a key in keyboard.
-key- holds the ASCII value of the key pressed.
-*/
 void iKeyboard(unsigned char key)
 {
     switch (key)
@@ -745,15 +700,6 @@ void iKeyboard(unsigned char key)
     }
 }
 
-/*
-function iSpecialKeyboard() is called whenver user hits special keys likefunction
-keys, home, end, pg up, pg down, arraows etc. you have to use
-appropriate constants to detect them. A list is:
-GLUT_KEY_F1, GLUT_KEY_F2, GLUT_KEY_F3, GLUT_KEY_F4, GLUT_KEY_F5, GLUT_KEY_F6,
-GLUT_KEY_F7, GLUT_KEY_F8, GLUT_KEY_F9, GLUT_KEY_F10, GLUT_KEY_F11,
-GLUT_KEY_F12, GLUT_KEY_LEFT, GLUT_KEY_UP, GLUT_KEY_RIGHT, GLUT_KEY_DOWN,
-GLUT_KEY_PAGE_UP, GLUT_KEY_PAGE_DOWN, GLUT_KEY_HOME, GLUT_KEY_END,
-GLUT_KEY_INSERT */
 void iSpecialKeyboard(unsigned char key)
 {
     switch (key)
@@ -798,6 +744,7 @@ int main(int argc, char *argv[])
 
     return 0;
 }
+
 
 
 
