@@ -22,8 +22,8 @@
 #define stateHard 7
 #define stateGameOver 8
 
-#define g_row 15
-#define g_col 12
+#define g_row 30
+#define g_col 14
 #define BUBBLE_RADIUS 20
 #define BUBBLE_DIAMETER (BUBBLE_RADIUS * 2)
 #define SHOOTER_X (600 / 2)
@@ -52,11 +52,21 @@ enum BubbleDesign
 
 
 const int level1_map[g_row][g_col] = {
-    {1, 1, 2, 2, 3, 3, 3, 3, 2, 2, 1, 1},
-    {0, 1, 2, 3, 4, 4, 4, 4, 3, 2, 1, 0},
-    {0, 0, 4, 4, 5, 5, 5, 5, 4, 4, 0, 0},
-    {0, 0, 0, 1, 2, 3, 3, 2, 1, 0, 0, 0},
-    {0, 0, 0, 0, 3, 4, 4, 3, 0, 0, 0, 0},
+    {1, 1, 2, 2, 3, 3, 3, 3, 2, 2, 1, 1,1,1},
+    {5, 1, 2, 3, 4, 4, 4, 4, 3, 2, 1, 1,4,4},
+    {1, 1, 4, 4, 5, 5, 5, 5, 4, 4, 3, 3,3,3},
+    {1, 1, 2, 1, 2, 3, 3, 2, 1, 5, 5, 5, 5, 5},
+    {2, 1, 1, 2, 3, 4, 4, 3, 4, 2, 2, 1, 1, 3},
+     {1, 1, 2, 2, 3, 3, 3, 3, 2, 2, 1, 1,1,1},
+    {5, 1, 2, 3, 4, 4, 4, 4, 3, 2, 1, 1,4,4},
+    {1, 1, 4, 4, 5, 5, 5, 5, 4, 4, 3, 3,3,3},
+    {1, 1, 2, 1, 2, 3, 3, 2, 1, 5, 5, 5, 5, 5},
+    {2, 1, 1, 2, 3, 4, 4, 3, 4, 2, 2, 1, 1, 3},
+     {1, 1, 2, 2, 3, 3, 3, 3, 2, 2, 1, 1,1,1},
+    {5, 1, 2, 3, 4, 4, 4, 4, 3, 2, 1, 1,4,4},
+    {1, 1, 4, 4, 5, 5, 5, 5, 4, 4, 3, 3,3,3},
+    {1, 1, 2, 1, 2, 3, 3, 2, 1, 5, 5, 5, 5, 5},
+    {2, 1, 1, 2, 3, 4, 4, 3, 4, 2, 2, 1, 1, 3},
 };
 
 struct Bubble
@@ -190,7 +200,32 @@ void popMatches(int s_row, int s_col)
             visited[r][c] = false; 
         }
     }
+ 
+    BubbleDesign targetColor = grid[s_row][s_col].bDes;
 
+    to_visit.push(&grid[s_row][s_col]);
+    visited[s_row][s_col] = true;
+
+    while (!to_visit.empty()) {
+        Bubble* current = to_visit.front();
+        to_visit.pop();
+        cluster.push_back(current);
+
+        for (Bubble* neighbor : getNeighbors(current->row, current->col)) {
+            if (!visited[neighbor->row][neighbor->col] && neighbor->bDes == targetColor) {
+                visited[neighbor->row][neighbor->col] = true;
+                to_visit.push(neighbor);
+            }
+        }
+    }
+
+    if (cluster.size() >= 3) {
+        for (Bubble* b : cluster) {
+            b->bDes = Empty;
+            score += 10;
+        }
+        floatingBubbles();
+    }
 }
 
 void floatingBubbles ()
@@ -306,7 +341,9 @@ void updateGame()
 
 void drawTrajectory() 
 {
-    if (shooterB.isMoving) return;
+    printf("Trajectory called before return\n");
+    // if (shooterB.isMoving) return;
+    printf("Trajectory called\n");
 
     double temp_x = SHOOTER_X;
     double temp_y = SHOOTER_Y;
@@ -365,7 +402,8 @@ void drawTrajectory()
 }
 
 
-void initializeGame(int difficulty) {
+void initializeGame(int difficulty) 
+{
     score = 0;
     
     if (difficulty == 5) 
@@ -498,10 +536,6 @@ void iDraw()
         iSetColor(255,255,255);
         iText(220, 160, "Press '<-' arrow to go back");
     }
-    if(gamestate==statePlay)
-    {
-        iText(200,650,"Play");
-    }
     if(gamestate==stateEasy)
     {
         iShowLoadedImage(0, 0, &p2);
@@ -571,10 +605,6 @@ void iDraw()
 
     //iShowLoadedImage(SHOOTER_X - 20, SHOOTER_Y - 20, &shooterImage);
     if (shooterB.bDes != Empty)
-    {
-        iShowLoadedImage(shooterB.x - BUBBLE_RADIUS, shooterB.y - BUBBLE_RADIUS, &bubbleDesign[shooterB.bDes]);
-    }
-    if (shooterB.bDes!= Empty) 
     {
         iShowLoadedImage(shooterB.x - BUBBLE_RADIUS, shooterB.y - BUBBLE_RADIUS, &bubbleDesign[shooterB.bDes]);
     }
@@ -762,11 +792,13 @@ int main(int argc, char *argv[])
     loadImage();
     initializeGrid(level1_map); 
     Shooter();
-
+    initializeGame(5);
     tid = iSetTimer(2000, stopload);
     iInitialize(SCREEN_WIDTH, SCREEN_HEIGHT, "Bouncing Ball");
 
     return 0;
 }
+
+
 
 
