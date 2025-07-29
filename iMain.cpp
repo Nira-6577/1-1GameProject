@@ -395,19 +395,25 @@ void Shooter()
 
 void loadImage()
 {
-    iLoadImage(&load, "image/load.jpg");        iResizeImage(&load,SCREEN_WIDTH, SCREEN_HEIGHT);
-    iLoadImage(&bg, "image/bg2.jpg");           iResizeImage(&bg, SCREEN_WIDTH, SCREEN_HEIGHT);
-    iLoadImage(&c, "image/circle.png");              iResizeImage(&c, 2*BUBBLE_DIAMETER, 2*BUBBLE_DIAMETER);
-    iLoadImage(&bgAbout, "image/bgAbout.jpg");            iResizeImage(&bgAbout, SCREEN_WIDTH, SCREEN_HEIGHT);
-    iLoadImage(&bgGame1, "image/bgGame1.jpg");            iResizeImage(&bgGame1, SCREEN_WIDTH, SCREEN_HEIGHT);
-    iLoadImage(&bgHelp, "image/bgHelp.jpg");            iResizeImage(&bgHelp, SCREEN_WIDTH, SCREEN_HEIGHT);
+    iLoadImage(&load, "image/load.jpg");   iResizeImage(&load,SCREEN_WIDTH, SCREEN_HEIGHT);
+    iLoadImage(&bg, "image/bg2.jpg");    iResizeImage(&bg, SCREEN_WIDTH, SCREEN_HEIGHT);
+    iLoadImage(&c, "image/circle.png");   iResizeImage(&c, 2*BUBBLE_DIAMETER, 2*BUBBLE_DIAMETER);
+    iLoadImage(&bgAbout, "image/bgAbout.jpg");  iResizeImage(&bgAbout, SCREEN_WIDTH, SCREEN_HEIGHT);
+    iLoadImage(&bgGame1, "image/bgGame1.jpg");      iResizeImage(&bgGame1, SCREEN_WIDTH, SCREEN_HEIGHT);
+    iLoadImage(&bgHelp, "image/bgHelp.jpg");   iResizeImage(&bgHelp, SCREEN_WIDTH, SCREEN_HEIGHT);
     //iLoadImage(&L3, "image/4.jpeg");            iResizeImage(&L3, 600, 620);
 
-    iLoadImage(&bubbleDesign[B1], "image/Expression1.png"); iResizeImage(&bubbleDesign[B1], BUBBLE_DIAMETER-4, BUBBLE_DIAMETER-4);
-    iLoadImage(&bubbleDesign[B2], "image/Expression2.png"); iResizeImage(&bubbleDesign[B2], BUBBLE_DIAMETER, BUBBLE_DIAMETER);
-    iLoadImage(&bubbleDesign[B3], "image/Expression3.png"); iResizeImage(&bubbleDesign[B3], BUBBLE_DIAMETER, BUBBLE_DIAMETER);
-    iLoadImage(&bubbleDesign[B4], "image/Expression4.png"); iResizeImage(&bubbleDesign[B4], BUBBLE_DIAMETER, BUBBLE_DIAMETER);
-    iLoadImage(&bubbleDesign[B5], "image/Expression5.png"); iResizeImage(&bubbleDesign[B5], BUBBLE_DIAMETER, BUBBLE_DIAMETER);
+    // iLoadImage(&bubbleDesign[B1], "image/Expression1.png"); iResizeImage(&bubbleDesign[B1], BUBBLE_DIAMETER-4, BUBBLE_DIAMETER-4);
+    // iLoadImage(&bubbleDesign[B2], "image/Expression2.png"); iResizeImage(&bubbleDesign[B2], BUBBLE_DIAMETER, BUBBLE_DIAMETER);
+    // iLoadImage(&bubbleDesign[B3], "image/Expression3.png"); iResizeImage(&bubbleDesign[B3], BUBBLE_DIAMETER, BUBBLE_DIAMETER);
+    // iLoadImage(&bubbleDesign[B4], "image/Expression4.png"); iResizeImage(&bubbleDesign[B4], BUBBLE_DIAMETER, BUBBLE_DIAMETER);
+    // iLoadImage(&bubbleDesign[B5], "image/Expression5.png"); iResizeImage(&bubbleDesign[B5], BUBBLE_DIAMETER, BUBBLE_DIAMETER);
+    
+    iLoadImage(&bubbleDesign[B1], "assets/images/sprites/ball1.png"); iResizeImage(&bubbleDesign[B1], BUBBLE_DIAMETER-4, BUBBLE_DIAMETER-4);
+    iLoadImage(&bubbleDesign[B2], "assets/images/sprites/ball2.png"); iResizeImage(&bubbleDesign[B2], BUBBLE_DIAMETER, BUBBLE_DIAMETER);
+    iLoadImage(&bubbleDesign[B3], "assets/images/sprites/ball3.png"); iResizeImage(&bubbleDesign[B3], BUBBLE_DIAMETER, BUBBLE_DIAMETER);
+    iLoadImage(&bubbleDesign[B4], "assets/images/sprites/ball4.png"); iResizeImage(&bubbleDesign[B4], BUBBLE_DIAMETER, BUBBLE_DIAMETER);
+    iLoadImage(&bubbleDesign[B5], "assets/images/sprites/ball5.png"); iResizeImage(&bubbleDesign[B5], BUBBLE_DIAMETER, BUBBLE_DIAMETER);
   
 }
 
