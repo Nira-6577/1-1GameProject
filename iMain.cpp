@@ -11,6 +11,7 @@
 #include <queue>
 #include "iSound.h"
 
+#define MAX_HIGHSCORES 4
 #define stateMenu 0
 #define statePlay 1
 #define stateHelp 2
@@ -21,6 +22,8 @@
 #define stateMedium 6
 #define stateHard 7
 #define stateGameOver 8
+#define statePause 9
+#define stateWin 10
 
 #define g_row 15
 #define g_col 14
@@ -34,9 +37,10 @@
 #define PI  3.1415926535897932384626
 
 
-int gamestate=stateMenu;
+int highscores[MAX_HIGHSCORES] = {0};
+int gamestate = stateMenu;
 int sound=1;
-int tid,bgid, limg=1 ;// fclickd=0;
+int tid,bgid, limg=1 , fclickd=0;
 int initialRow=5;
 int score=0;
 int highScore=0;
@@ -46,6 +50,9 @@ int gameTimerId=-1;
 int scrollTimerId=-1; 
 int gameLoopTimerId = -1;
 int scrollInterval = 25000;
+int difficulty=5;
+bool scrollingStopped = false;
+bool gameEnded = false;
 
 enum BubbleDesign
 {
@@ -95,7 +102,6 @@ const int level2_map[g_row][g_col] = {
     {2, 1, 1, 2, 3, 4, 4, 3, 4, 2, 2, 1, 1, 3},
 };
 
-
 const int level3_map[g_row][g_col] = {
     {1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 1, 1,2,2},
     {5, 1, 2, 3, 4, 4, 1, 1, 3, 2, 1, 1,4,4},
@@ -109,11 +115,10 @@ const int level3_map[g_row][g_col] = {
     {2, 1, 0, 2, 3, 4, 4, 3, 4, 2, 2, 1, 1, 3},
          {1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 1, 1,2,2},
     {5, 1, 2, 0, 4, 4, 1, 1, 3, 2, 1, 1,4,4},
-    {1, 2, 1, 1, 3,3, 5, 5, 3, 2, 3, 3,3,3},
-    {0, 4, 2, 1, 2, 2, 3, 2, 1, 5, 4, 5, 5, 5},
-    {2, 1, 0, 2, 3, 4, 4, 3, 4, 2, 2, 1, 1, 3},
+    {1, 2, 1, 1, 3,3, 5, 5, 3, 2, 3, 2,3,3},
+    {0, 4, 2, 1, 5, 2, 3, 2, 1, 5, 4, 5, 5, 5},
+    {2, 1, 3, 2, 3, 4, 4, 3, 4, 2, 2, 1, 1, 3},
 };
-
 
 
 struct Bubble
@@ -142,6 +147,7 @@ void getDesigns(int row, int col, double &x, double &y);
 void Shooter();
 void loadImage();
 void initializeGrid(const int map[g_row][g_col]);
+void initializeGame(int difficulty);
 std::vector<Bubble*> getNeighbors(int r, int c);
 void popMatches(int s_row, int s_col);
 void floatingBubbles(); 
@@ -155,204 +161,292 @@ void iMouseDrag(int mx, int my);
 void iMouseWheel(int dir, int mx, int my);
 void iSpecialKeyboard(unsigned char key);
 void scroll();
+BubbleDesign getRandomDesign();
+bool areAllBubblesCleared();
 
-int difficulty=5;
+void stopAllGameTimers() {
+    if (scrollTimerId >= 0) {
+        iPauseTimer(scrollTimerId);
+        scrollTimerId = -1;
+    }
+    if (gameLoopTimerId >= 0) {
+        iPauseTimer(gameLoopTimerId);
+        gameLoopTimerId = -1;
+    }
+}
 
+void loadHighScores() 
+{
+    FILE* file = fopen("highscores.txt", "r");
+    if (file) 
+    {
+        for (int i = 0; i < MAX_HIGHSCORES; i++) 
+        {
+            if (fscanf(file, "%d", &highscores[i]) != 1) 
+            {
+                highscores[i] = 0;
+            }
+        }
+        fclose(file);
+    } 
+    else 
+    {
+        for (int i = 0; i < MAX_HIGHSCORES; i++) highscores[i] = 0;
+    }
+}
+
+void saveHighScores() 
+{
+    FILE* file = fopen("highscores.txt", "w");
+    if (file) 
+    {
+        for (int i = 0; i < MAX_HIGHSCORES; i++)
+            fprintf(file, "%d\n", highscores[i]);
+        fclose(file);
+    }
+}
+
+void tryUpdateHighScores(int newScore) 
+{
+    for (int i = 0; i < MAX_HIGHSCORES; i++) 
+    {
+        if (newScore > highscores[i]) 
+        {
+            for (int j = MAX_HIGHSCORES - 1; j > i; j--) 
+            {
+                highscores[j] = highscores[j - 1];
+            }
+            highscores[i] = newScore;
+            break;
+        }
+    }
+    saveHighScores();
+}
 void scroll()
 {
-if(difficulty == 5)
-{
-    for (int r = g_row - 1; r >=2; r--) 
+    if(difficulty == 5) 
     {
-        for (int c = 0; c < g_col; c++) 
-        {
-            grid[r][c] = grid[r-2][c];
-            grid[r][c].row = r;
-            grid[r][c].col = c;
-            getDesigns(r, c, grid[r][c].x, grid[r][c].y);
-        }
-    }
-
-    int nextMapRow = g_row - Srow;
-    int nextMapRow2= g_row - Srow;
-    if (Srow > 2 && nextMapRow < g_row && nextMapRow2 < g_row) 
-    {
-        for (int c = 0; c < g_col; c++) 
-        {
-            grid[0][c].bDes = static_cast<BubbleDesign>(level1_map[nextMapRow][c]);
-            grid[0][c].row = 0;
-            grid[0][c].col = c;
-            grid[0][c].isMoving = false;
-            getDesigns(0, c, grid[0][c].x, grid[0][c].y);
-        }
-        for (int c = 0; c < g_col; c++) 
-        {
-            grid[0][c].bDes = static_cast<BubbleDesign>(level1_map[nextMapRow2][c]);
-            grid[0][c].row = 0;
-            grid[0][c].col = c;
-            grid[0][c].isMoving = false;
-            getDesigns(0, c, grid[0][c].x, grid[0][c].y);
-        }
-
-        Srow-=2;
-    } 
-    else 
-    {
-        iPauseTimer(scrollTimerId);
-        for (int r = 0; r <2; r++) 
+        for (int r = g_row - 1; r >= 2; r--) 
         {
             for (int c = 0; c < g_col; c++) 
             {
-                grid[0][c].bDes = Empty; 
+                grid[r][c] = grid[r-2][c];
+                grid[r][c].row = r;
+                grid[r][c].col = c;
+                getDesigns(r, c, grid[r][c].x, grid[r][c].y);
+            }
+        }
+
+        int nextMapRow = g_row - Srow;
+        
+        if (Srow > 2 && nextMapRow < g_row) 
+        {
+            for (int c = 0; c < g_col; c++) 
+            {
+                grid[0][c].bDes = static_cast<BubbleDesign>(level1_map[nextMapRow][c]);
                 grid[0][c].row = 0;
                 grid[0][c].col = c;
                 grid[0][c].isMoving = false;
                 getDesigns(0, c, grid[0][c].x, grid[0][c].y);
+                
+                if (nextMapRow > 0) {
+                    grid[1][c].bDes = static_cast<BubbleDesign>(level1_map[nextMapRow-1][c]);
+                    grid[1][c].row = 1;
+                    grid[1][c].col = c;
+                    grid[1][c].isMoving = false;
+                    getDesigns(1, c, grid[1][c].x, grid[1][c].y);
+                }
+            }
+            Srow -= 2;
+            //printf("Scrolling: Srow = %d, nextMapRow = %d\n", Srow, nextMapRow); 
+        } 
+        else 
+        {
+            if (!scrollingStopped) {
+                //printf("SCROLLING STOPPED! No more bubbles will be added.\n"); 
+                iPauseTimer(scrollTimerId);
+                scrollingStopped = true;
+            }
+            
+            for (int r = 0; r < 2; r++) 
+            {
+                for (int c = 0; c < g_col; c++) 
+                {
+                    grid[r][c].bDes = Empty; 
+                    grid[r][c].row = r;
+                    grid[r][c].col = c;
+                    grid[r][c].isMoving = false;
+                    getDesigns(r, c, grid[r][c].x, grid[r][c].y);
+                }
+            }
+        }
+        
+        for (int c = 0; c < g_col; ++c) 
+        {
+            if (grid[g_row - 1][c].bDes != Empty || grid[g_row - 2][c].bDes != Empty) 
+            {
+                //printf("GAME OVER - Bubbles reached bottom!\n");
+                gamestate = stateGameOver;
+                iPauseTimer(scrollTimerId);
+                tryUpdateHighScores(score);
+                return;
             }
         }
     }
-    
-    for (int c = 0; c < g_col; ++c) 
-    {
-        if (grid[g_row - 1][c].bDes != Empty || grid[g_row - 2][c].bDes != Empty) 
-        {
-            gamestate = stateGameOver;
-            iPauseTimer(scrollTimerId);
-            //iPauseTimer(gameTimerId);
-            return;
-        }
-    }
-}
 
-else if(difficulty == 7)
-{
-    for (int r = g_row - 1; r >=2; r--) 
+    else if(difficulty == 7) 
     {
-        for (int c = 0; c < g_col; c++) 
-        {
-            grid[r][c] = grid[r-2][c];
-            grid[r][c].row = r;
-            grid[r][c].col = c;
-            getDesigns(r, c, grid[r][c].x, grid[r][c].y);
-        }
-    }
-
-    int nextMapRow = g_row - Srow;
-    int nextMapRow2= g_row - Srow;
-    if (Srow > 2 && nextMapRow < g_row && nextMapRow2 < g_row) 
-    {
-        for (int c = 0; c < g_col; c++) 
-        {
-            grid[0][c].bDes = static_cast<BubbleDesign>(level2_map[nextMapRow][c]);
-            grid[0][c].row = 0;
-            grid[0][c].col = c;
-            grid[0][c].isMoving = false;
-            getDesigns(0, c, grid[0][c].x, grid[0][c].y);
-        }
-        for (int c = 0; c < g_col; c++) 
-        {
-            grid[0][c].bDes = static_cast<BubbleDesign>(level2_map[nextMapRow2][c]);
-            grid[0][c].row = 0;
-            grid[0][c].col = c;
-            grid[0][c].isMoving = false;
-            getDesigns(0, c, grid[0][c].x, grid[0][c].y);
-        }
-
-        Srow-=2;
-    } 
-    else 
-    {
-        iPauseTimer(scrollTimerId);
-        for (int r = 0; r <2; r++) 
+        for (int r = g_row - 1; r >= 2; r--) 
         {
             for (int c = 0; c < g_col; c++) 
             {
-                grid[0][c].bDes = Empty; 
+                grid[r][c] = grid[r-2][c];
+                grid[r][c].row = r;
+                grid[r][c].col = c;
+                getDesigns(r, c, grid[r][c].x, grid[r][c].y);
+            }
+        }
+
+        int nextMapRow = g_row - Srow;
+        
+        if (Srow > 2 && nextMapRow < g_row) 
+        {
+            for (int c = 0; c < g_col; c++) 
+            {
+                grid[0][c].bDes = static_cast<BubbleDesign>(level2_map[nextMapRow][c]);
                 grid[0][c].row = 0;
                 grid[0][c].col = c;
                 grid[0][c].isMoving = false;
                 getDesigns(0, c, grid[0][c].x, grid[0][c].y);
+                
+                if (nextMapRow > 0) {
+                    grid[1][c].bDes = static_cast<BubbleDesign>(level2_map[nextMapRow-1][c]);
+                    grid[1][c].row = 1;
+                    grid[1][c].col = c;
+                    grid[1][c].isMoving = false;
+                    getDesigns(1, c, grid[1][c].x, grid[1][c].y);
+                }
+            }
+            Srow -= 2;
+            //printf("Scrolling: Srow = %d, nextMapRow = %d\n", Srow, nextMapRow); 
+        } 
+        else 
+        {
+            if (!scrollingStopped) 
+            {
+                //printf("SCROLLING STOPPED! No more bubbles will be added.\n");
+                iPauseTimer(scrollTimerId);
+                scrollingStopped = true;
+            }
+            
+            for (int r = 0; r < 2; r++) 
+            {
+                for (int c = 0; c < g_col; c++) 
+                {
+                    grid[r][c].bDes = Empty; 
+                    grid[r][c].row = r;
+                    grid[r][c].col = c;
+                    grid[r][c].isMoving = false;
+                    getDesigns(r, c, grid[r][c].x, grid[r][c].y);
+                }
+            }
+        }
+        
+        for (int c = 0; c < g_col; ++c) 
+        {
+            if (grid[g_row - 1][c].bDes != Empty || grid[g_row - 2][c].bDes != Empty) 
+            {
+                //printf("GAME OVER - Bubbles reached bottom!\n"); 
+                gamestate = stateGameOver;
+                iPauseTimer(scrollTimerId);
+                tryUpdateHighScores(score);
+                return;
             }
         }
     }
-    
-    for (int c = 0; c < g_col; ++c) 
-    {
-        if (grid[g_row - 1][c].bDes != Empty || grid[g_row - 2][c].bDes != Empty) 
-        {
-            gamestate = stateGameOver;
-            iPauseTimer(scrollTimerId);
-            //iPauseTimer(gameTimerId);
-            return;
-        }
-    }
-}
 
-else 
-{
-    for (int r = g_row - 1; r >=2; r--) 
-    {
-        for (int c = 0; c < g_col; c++) 
-        {
-            grid[r][c] = grid[r-2][c];
-            grid[r][c].row = r;
-            grid[r][c].col = c;
-            getDesigns(r, c, grid[r][c].x, grid[r][c].y);
-        }
-    }
-
-    int nextMapRow = g_row - Srow;
-    int nextMapRow2= g_row - Srow;
-    if (Srow > 2 && nextMapRow < g_row && nextMapRow2 < g_row) 
-    {
-        for (int c = 0; c < g_col; c++) 
-        {
-            grid[0][c].bDes = static_cast<BubbleDesign>(level3_map[nextMapRow][c]);
-            grid[0][c].row = 0;
-            grid[0][c].col = c;
-            grid[0][c].isMoving = false;
-            getDesigns(0, c, grid[0][c].x, grid[0][c].y);
-        }
-        for (int c = 0; c < g_col; c++) 
-        {
-            grid[0][c].bDes = static_cast<BubbleDesign>(level3_map[nextMapRow2][c]);
-            grid[0][c].row = 0;
-            grid[0][c].col = c;
-            grid[0][c].isMoving = false;
-            getDesigns(0, c, grid[0][c].x, grid[0][c].y);
-        }
-
-        Srow-=2;
-    } 
     else 
     {
-        iPauseTimer(scrollTimerId);
-        for (int r = 0; r <2; r++) 
+        for (int r = g_row - 1; r >= 2; r--) 
         {
             for (int c = 0; c < g_col; c++) 
             {
-                grid[0][c].bDes = Empty; 
+                grid[r][c] = grid[r-2][c];
+                grid[r][c].row = r;
+                grid[r][c].col = c;
+                getDesigns(r, c, grid[r][c].x, grid[r][c].y);
+            }
+        }
+
+        int nextMapRow = g_row - Srow;
+        
+        if (Srow > 2 && nextMapRow < g_row) 
+        {
+            for (int c = 0; c < g_col; c++) 
+            {
+                grid[0][c].bDes = static_cast<BubbleDesign>(level3_map[nextMapRow][c]);
                 grid[0][c].row = 0;
                 grid[0][c].col = c;
                 grid[0][c].isMoving = false;
                 getDesigns(0, c, grid[0][c].x, grid[0][c].y);
+                
+                if (nextMapRow > 0) {
+                    grid[1][c].bDes = static_cast<BubbleDesign>(level3_map[nextMapRow-1][c]);
+                    grid[1][c].row = 1;
+                    grid[1][c].col = c;
+                    grid[1][c].isMoving = false;
+                    getDesigns(1, c, grid[1][c].x, grid[1][c].y);
+                }
+            }
+            Srow -= 2;
+            printf("Scrolling: Srow = %d, nextMapRow = %d\n", Srow, nextMapRow); // Debug
+        }
+        else 
+        {
+            if (!scrollingStopped) 
+            {
+                //printf("SCROLLING STOPPED! No more bubbles will be added.\n");
+                iPauseTimer(scrollTimerId);
+                scrollingStopped = true;
+            }
+            
+            for (int r = 0; r < 2; r++) 
+            {
+                for (int c = 0; c < g_col; c++) 
+                {
+                    grid[r][c].bDes = Empty; 
+                    grid[r][c].row = r;
+                    grid[r][c].col = c;
+                    grid[r][c].isMoving = false;
+                    getDesigns(r, c, grid[r][c].x, grid[r][c].y);
+                }
             }
         }
-    }
-    
-    for (int c = 0; c < g_col; ++c) 
+        
+        for (int c = 0; c < g_col; ++c) 
     {
         if (grid[g_row - 1][c].bDes != Empty || grid[g_row - 2][c].bDes != Empty) 
         {
+            printf("GAME OVER - Bubbles reached bottom!\n");
             gamestate = stateGameOver;
             iPauseTimer(scrollTimerId);
-            //iPauseTimer(gameTimerId);
+            tryUpdateHighScores(score);
             return;
         }
     }
+    
+    if (areAllBubblesCleared()) 
+    {
+        printf("WIN! All bubbles cleared after scroll!\n");
+        gamestate = stateWin;
+        iPauseTimer(gameTimerId);
+        if (scrollTimerId >= 0) 
+            iPauseTimer(scrollTimerId);
+        score += 100; 
+        tryUpdateHighScores(score);
+    }
+    }
 }
-}
-
 
 bool areAllBubblesCleared()
 {
@@ -367,17 +461,16 @@ bool areAllBubblesCleared()
     return true;
 }
 
-
 BubbleDesign getRandomDesign()
 {
     return  (static_cast<BubbleDesign>((rand()%(design-1))+1));
 }
 
-
 void getDesigns(int row, int col, double &x, double &y)
 {
     x = (col * (BUBBLE_DIAMETER - 2)) + BUBBLE_RADIUS + 30;
-    if (row % 2 != 0) x += BUBBLE_RADIUS;
+    if (row % 2 != 0) 
+    x += BUBBLE_RADIUS;
     y = SCREEN_HEIGHT - (row * (BUBBLE_DIAMETER - 5)) - BUBBLE_RADIUS;
 
 }
@@ -395,25 +488,40 @@ void Shooter()
 
 void loadImage()
 {
-    iLoadImage(&load, "image/load.jpg");   iResizeImage(&load,SCREEN_WIDTH, SCREEN_HEIGHT);
-    iLoadImage(&bg, "image/bg2.jpg");    iResizeImage(&bg, SCREEN_WIDTH, SCREEN_HEIGHT);
-    iLoadImage(&c, "image/circle.png");   iResizeImage(&c, 2*BUBBLE_DIAMETER, 2*BUBBLE_DIAMETER);
-    iLoadImage(&bgAbout, "image/bgAbout.jpg");  iResizeImage(&bgAbout, SCREEN_WIDTH, SCREEN_HEIGHT);
-    iLoadImage(&bgGame1, "image/bgGame1.jpg");      iResizeImage(&bgGame1, SCREEN_WIDTH, SCREEN_HEIGHT);
-    iLoadImage(&bgHelp, "image/bgHelp.jpg");   iResizeImage(&bgHelp, SCREEN_WIDTH, SCREEN_HEIGHT);
-    //iLoadImage(&L3, "image/4.jpeg");            iResizeImage(&L3, 600, 620);
+    iLoadImage(&load, "image/load.jpg");   
+    iResizeImage(&load,SCREEN_WIDTH, SCREEN_HEIGHT);
+    iLoadImage(&bg, "image/bg2.jpg");    
+    iResizeImage(&bg, SCREEN_WIDTH, SCREEN_HEIGHT);
+    iLoadImage(&c, "image/circle.png");   
+    iResizeImage(&c, 2*BUBBLE_DIAMETER, 2*BUBBLE_DIAMETER);
+    iLoadImage(&bgAbout, "image/bgAbout.jpg");  
+    iResizeImage(&bgAbout, SCREEN_WIDTH, SCREEN_HEIGHT);
+    iLoadImage(&bgGame1, "image/bgGame1.jpg");      
+    iResizeImage(&bgGame1, SCREEN_WIDTH, SCREEN_HEIGHT);
+    iLoadImage(&bgHelp, "image/bgHelp.jpg");   
+    iResizeImage(&bgHelp, SCREEN_WIDTH, SCREEN_HEIGHT);
 
-    // iLoadImage(&bubbleDesign[B1], "image/Expression1.png"); iResizeImage(&bubbleDesign[B1], BUBBLE_DIAMETER-4, BUBBLE_DIAMETER-4);
-    // iLoadImage(&bubbleDesign[B2], "image/Expression2.png"); iResizeImage(&bubbleDesign[B2], BUBBLE_DIAMETER, BUBBLE_DIAMETER);
-    // iLoadImage(&bubbleDesign[B3], "image/Expression3.png"); iResizeImage(&bubbleDesign[B3], BUBBLE_DIAMETER, BUBBLE_DIAMETER);
-    // iLoadImage(&bubbleDesign[B4], "image/Expression4.png"); iResizeImage(&bubbleDesign[B4], BUBBLE_DIAMETER, BUBBLE_DIAMETER);
-    // iLoadImage(&bubbleDesign[B5], "image/Expression5.png"); iResizeImage(&bubbleDesign[B5], BUBBLE_DIAMETER, BUBBLE_DIAMETER);
+    // iLoadImage(&bubbleDesign[B1], "image/Expression1.png"); 
+    // iResizeImage(&bubbleDesign[B1], BUBBLE_DIAMETER-4, BUBBLE_DIAMETER-4);
+    // iLoadImage(&bubbleDesign[B2], "image/Expression2.png"); 
+    // iResizeImage(&bubbleDesign[B2], BUBBLE_DIAMETER, BUBBLE_DIAMETER);
+    // iLoadImage(&bubbleDesign[B3], "image/Expression3.png"); 
+    // iResizeImage(&bubbleDesign[B3], BUBBLE_DIAMETER, BUBBLE_DIAMETER);
+    // iLoadImage(&bubbleDesign[B4], "image/Expression4.png"); 
+    // iResizeImage(&bubbleDesign[B4], BUBBLE_DIAMETER, BUBBLE_DIAMETER);
+    // iLoadImage(&bubbleDesign[B5], "image/Expression5.png"); 
+    // iResizeImage(&bubbleDesign[B5], BUBBLE_DIAMETER, BUBBLE_DIAMETER);
     
-    iLoadImage(&bubbleDesign[B1], "assets/images/sprites/ball1.png"); iResizeImage(&bubbleDesign[B1], BUBBLE_DIAMETER-4, BUBBLE_DIAMETER-4);
-    iLoadImage(&bubbleDesign[B2], "assets/images/sprites/ball2.png"); iResizeImage(&bubbleDesign[B2], BUBBLE_DIAMETER, BUBBLE_DIAMETER);
-    iLoadImage(&bubbleDesign[B3], "assets/images/sprites/ball3.png"); iResizeImage(&bubbleDesign[B3], BUBBLE_DIAMETER, BUBBLE_DIAMETER);
-    iLoadImage(&bubbleDesign[B4], "assets/images/sprites/ball4.png"); iResizeImage(&bubbleDesign[B4], BUBBLE_DIAMETER, BUBBLE_DIAMETER);
-    iLoadImage(&bubbleDesign[B5], "assets/images/sprites/ball5.png"); iResizeImage(&bubbleDesign[B5], BUBBLE_DIAMETER, BUBBLE_DIAMETER);
+    iLoadImage(&bubbleDesign[B1], "assets/images/sprites/ball1.png"); 
+    iResizeImage(&bubbleDesign[B1], BUBBLE_DIAMETER-4, BUBBLE_DIAMETER-4);
+    iLoadImage(&bubbleDesign[B2], "assets/images/sprites/ball2.png"); 
+    iResizeImage(&bubbleDesign[B2], BUBBLE_DIAMETER, BUBBLE_DIAMETER);
+    iLoadImage(&bubbleDesign[B3], "assets/images/sprites/ball3.png"); 
+    iResizeImage(&bubbleDesign[B3], BUBBLE_DIAMETER, BUBBLE_DIAMETER);
+    iLoadImage(&bubbleDesign[B4], "assets/images/sprites/ball4.png"); 
+    iResizeImage(&bubbleDesign[B4], BUBBLE_DIAMETER, BUBBLE_DIAMETER);
+    iLoadImage(&bubbleDesign[B5], "assets/images/sprites/ball5.png"); 
+    iResizeImage(&bubbleDesign[B5], BUBBLE_DIAMETER, BUBBLE_DIAMETER);
   
 }
 
@@ -559,8 +667,37 @@ void floatingBubbles ()
 
 }
 
+
 void updateGame() 
 {
+    if (gameEnded && gamestate != statePlay) {
+        return;
+    }
+
+    if (gameLoopTimerId < 0) {
+        printf("Game loop timer invalid, stopping game\n");
+        gamestate = stateMenu;
+        return;
+    }
+
+     if (!gameEnded && areAllBubblesCleared()) 
+    {
+        printf("WIN! All bubbles cleared!\n");
+        gamestate = stateWin;  
+        gameEnded = true;     
+        iPauseTimer(gameTimerId);
+        if (scrollTimerId >= 0) 
+            iPauseTimer(scrollTimerId);
+        score += 1000; 
+        tryUpdateHighScores(score);
+        return;
+    }
+
+    if (gamestate != statePlay || gameEnded) 
+    {
+        return;
+    }
+
     if (shooterB.isMoving) 
     {
         shooterB.x += shooterB.dx;
@@ -626,28 +763,36 @@ void updateGame()
                 getDesigns(snap_r, snap_c, grid[snap_r][snap_c].x, grid[snap_r][snap_c].y);
                 popMatches(snap_r, snap_c);
 
-            if (areAllBubblesCleared()) 
-            {
-                gamestate = stateGameOver;
-                iPauseTimer(gameTimerId);
-                if (score > highScore) 
+                if (scrollingStopped && !gameEnded) 
                 {
-                    highScore = score;
+                    if (areAllBubblesCleared()) 
+                    {
+                        printf("WIN! All bubbles cleared after scrolling stopped\n");
+                        gamestate = stateWin; 
+                        gameEnded = true;
+                        iPauseTimer(gameTimerId);
+                        if (scrollTimerId >= 0) 
+                            iPauseTimer(scrollTimerId);
+                        score += 1000;
+                        tryUpdateHighScores(score);
+                        return;
+                    }
                 }
             }
-
-        }
            Shooter(); 
+        }
     }
 }
-}
+
 
 void idrawTrajectory() 
 {
    // printf("Trajectory called before return\n");
-    if (shooterB.isMoving) return;
+    if (shooterB.isMoving) 
+    {
+        return;
+    }
     //printf("Trajectory called\n");
-    //, 
     double temp_x = nextB.x + 2*BUBBLE_RADIUS;
     double temp_y = nextB.y + 2*BUBBLE_RADIUS;
     double aim_rad = angle * (PI / 180.0);
@@ -711,6 +856,7 @@ void iDraw()
     {
         iShowLoadedImage(0, 0, &load);
     }
+
     else if(gamestate==stateMenu)
     {
         iShowLoadedImage(0, 0, &bg);
@@ -748,6 +894,7 @@ void iDraw()
         else
             iText(260, 120, "Sound: OFF");
     }
+
     if(gamestate==stateHelp)
     {
         iShowLoadedImage(0, 0, &bgHelp); 
@@ -757,9 +904,9 @@ void iDraw()
         iText(115,430,"to aim at the balls.");
         iText(100, 390, "# Use 'Mouse' or 'Use GLUT_KEY_UP' to shoot bubbles.");
         iText(100, 330, "# You have to match ball colors to destroy it");
-        //iText(,,"Use GLUT_KEY_RIGHT,GLUT_KEY_Left")
         iText(150, 260, "Press 'b'  to go back");
     }
+
     if(gamestate==stateAbout)
     {
         iShowLoadedImage(0, 0, &bgHelp);
@@ -776,6 +923,7 @@ void iDraw()
         iText(370, 235, "2405120");
         iText(150, 120, "Press 'b' arrow to go back"); 
     }
+
     if(gamestate==stateLevel)
     {
         iShowLoadedImage(0, 0, &bgGame1);
@@ -800,6 +948,7 @@ void iDraw()
         iSetColor(255,255,255);
         iText(160,210,"Press 'b' arrow to go back");
     }
+
     if(gamestate==stateEasy)
     {
         iShowLoadedImage(0, 0, &bgGame1);
@@ -816,6 +965,7 @@ void iDraw()
         iSetColor(255,255,255);
         iText(160,210,"Press 'b' arrow to go back");
     }
+
     if(gamestate==stateMedium)
     {
         iShowLoadedImage(0, 0, &bgGame1);
@@ -832,6 +982,7 @@ void iDraw()
         iSetColor(255,255,255);
         iText(160,210,"Press 'b' arrow to go back");
     }
+
     if(gamestate==stateHard)
     {
         iShowLoadedImage(0, 0, &bgGame1);
@@ -848,6 +999,7 @@ void iDraw()
         iSetColor(255,255,255);
         iText(160,210,"Press 'b' arrow to go back");
     }
+
     if(gamestate==statePlay)
     {
         iShowLoadedImage(0, 0, &bgGame1);
@@ -859,6 +1011,9 @@ void iDraw()
     iFilledRectangle(0, 660, 120, 30);  
     iSetColor(255, 255, 255);
     iText(10, 670, scoreStr, GLUT_BITMAP_HELVETICA_18);
+    iSetColor(255, 255, 255);
+    iFilledRectangle(520, 670, 10, 20);
+    iFilledRectangle(540, 670, 10, 20);
 
 
 
@@ -876,13 +1031,25 @@ void iDraw()
     iShowLoadedImage(SHOOTER_X-(3*BUBBLE_RADIUS),SHOOTER_Y-BUBBLE_RADIUS,&c);
    idrawTrajectory();
 
-    //iShowLoadedImage(SHOOTER_X - 20, SHOOTER_Y - 20, &shooterImage);
     if (shooterB.bDes != Empty)
     {
         iShowLoadedImage(shooterB.x - BUBBLE_RADIUS, shooterB.y - BUBBLE_RADIUS+10, &bubbleDesign[shooterB.bDes]);
         iShowLoadedImage(nextB.x - BUBBLE_RADIUS-5, nextB.y - BUBBLE_RADIUS, &bubbleDesign[nextB.bDes]);
     }
     }
+
+    else if(gamestate == statePause)
+    {
+        iSetColor(0, 0 , 255);
+        iFilledRectangle(250,530, 100, 30);
+        iSetColor(255, 255 , 255);
+        if(sound)
+        iText(260, 540, "Sound: ON" );
+        else
+        iText(260, 540, "Sound: OFF" );
+        iText(240, 400, "Press 'r' to resume", GLUT_BITMAP_TIMES_ROMAN_24);
+    }
+
     if (gamestate == stateGameOver)
     {
     iClear();
@@ -890,30 +1057,97 @@ void iDraw()
     iFilledRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
 
     iSetColor(255, 255, 255);
-    iText(220, 400, " Game Over!", GLUT_BITMAP_HELVETICA_18);
+    iText(220, 410, " Game Over!", GLUT_BITMAP_HELVETICA_18);
 
     iSetColor(35, 10, 100);
 iFilledRectangle(240, 200, 120, 40);
 iSetColor(255, 255, 255);
 iText(260, 215, "Play Again");
 
-        char highScoreStr[50];
-sprintf(highScoreStr, "High Score: %d", highScore);
-iText(240, 330, highScoreStr, GLUT_BITMAP_HELVETICA_18);
+        iText(240, 350, "High Scores:", GLUT_BITMAP_HELVETICA_18);
+
+        char scoreStr[50];
+        sprintf(scoreStr, "Final Score: %d", score);
+        iText(240, 380, scoreStr, GLUT_BITMAP_HELVETICA_18);
+
+        char hscStr[100];
+        for (int i = 0; i < MAX_HIGHSCORES; i++) 
+        {
+            sprintf(hscStr, "%d. %d", i + 1, highscores[i]);
+            iText(240, 330 - i * 20, hscStr, GLUT_BITMAP_HELVETICA_18);
+        }
+
+        iText(200, 150, "Press 'b' to return to Main Menu", GLUT_BITMAP_HELVETICA_18);
+    }
+    if (gamestate == stateWin)
+{
+    iClear();
+    iSetColor(0, 100, 0); 
+    iFilledRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
+
+    iSetColor(255, 255, 0); 
+    iText(200, 450, "CONGRATULATIONS!", GLUT_BITMAP_TIMES_ROMAN_24);
+    iText(220, 400, "You Win!", GLUT_BITMAP_HELVETICA_18);
 
     char scoreStr[50];
     sprintf(scoreStr, "Final Score: %d", score);
+    iSetColor(255, 255, 255);
     iText(240, 360, scoreStr, GLUT_BITMAP_HELVETICA_18);
 
-    iText(180, 300, "Press 'b' to return to Main Menu", GLUT_BITMAP_HELVETICA_18);
+    iText(240, 310, "High Scores:", GLUT_BITMAP_HELVETICA_18);
+    char hscStr[100];
+    for (int i = 0; i < MAX_HIGHSCORES; i++) 
+    {
+        sprintf(hscStr, "%d. %d", i + 1, highscores[i]);
+        iText(240, 290 - i * 20, hscStr, GLUT_BITMAP_HELVETICA_18);
     }
+
+    iSetColor(35, 10, 100);
+    iFilledRectangle(200, 200, 200, 40);
+    iSetColor(255, 255, 255);
+    iText(240, 215, "Next Level / Play Again");
+
+    iText(200, 150, "Press 'b' to return to Main Menu", GLUT_BITMAP_HELVETICA_18);
+}
 
 }
 
 void initializeGame(int difficulty) 
 {
+    stopAllGameTimers();
+    if (scrollTimerId >= 0) 
+    {
+        iPauseTimer(scrollTimerId);
+        scrollTimerId = -1;
+    }
+    if (gameLoopTimerId >= 0) 
+    {
+        iPauseTimer(gameLoopTimerId);
+        gameLoopTimerId = -1;
+    }
+
     score = 0;
+    scrollingStopped = false; 
+    gameEnded = false;
+    Srow = (g_row - 5); 
+    gameTime = 0;
+    angle = 90;  
     
+    shooterB.isMoving = false;
+    shooterB.dx = 0;
+    shooterB.dy = 0;
+
+    for (int r = 0; r < g_row; r++) 
+    {
+        for (int c = 0; c < g_col; c++) 
+        {
+            grid[r][c].bDes = Empty;
+            grid[r][c].isMoving = false;
+            grid[r][c].dx = 0;
+            grid[r][c].dy = 0;
+        }
+    }
+
     if (difficulty == 5) 
     { 
         initializeGrid(level1_map); 
@@ -927,20 +1161,17 @@ void initializeGame(int difficulty)
         initializeGrid(level3_map);
     }
 
-    nextB.bDes = B1; 
+    nextB.bDes = getRandomDesign(); 
     Shooter();
-     if (scrollTimerId >= 0) iPauseTimer(scrollTimerId);
-    scrollTimerId = iSetTimer(scrollInterval, scroll);
 
-    gameTime = 0;
-    if (gameTimerId >= 0) iPauseTimer(gameTimerId);
+       scrollTimerId = iSetTimer(scrollInterval, scroll);
+    gameLoopTimerId = iSetTimer(20, updateGame);
 
     gamestate = statePlay;
 }
 
 void iMouseMove(int mx, int my)
 {
-    // place your codes here
     if(gamestate!=statePlay)
     return ;
     double dx=mx-SHOOTER_X;
@@ -962,13 +1193,13 @@ void iMouse(int button, int state, int mx, int my)
 {
     if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN)
     {
-        // place your codes here
         if(gamestate==stateMenu)
        {
             if(mx>=250 && mx<=350 && my>=500 && my<=545 )
             {
+                difficulty = 5;
+                scrollInterval = 25000;
                 initializeGame(5);
-                //gamestate=statePlay ;
             }
             else if(mx>=250 && mx<=350 && my>=400 && my<=445 )
          gamestate=stateLevel ;
@@ -999,17 +1230,16 @@ void iMouse(int button, int state, int mx, int my)
          gamestate=stateMedium;
             if(mx >= 200 && mx <= 300 && my >= 300 && my <= 345)
          gamestate=stateHard;
-       
-     }
+       }
 
         if(gamestate==stateEasy)
         {
             if(mx>=200 && mx<=350 && my>=390 && my<=435 )
             {
-                 //iSetTimer
-                 initializeGame(5);
+             stopAllGameTimers();    
                  difficulty=5;
                   scrollInterval = 25000;
+                  initializeGame(5);
             }
         }
 
@@ -1017,10 +1247,10 @@ void iMouse(int button, int state, int mx, int my)
         {
             if(mx>=200 && mx<=350 && my>=390 && my<=435 )
             {
-                 //iSetTimer
+                stopAllGameTimers();
                  difficulty=7;
-                 initializeGame(7);
                   scrollInterval = 20000;
+                 initializeGame(7);
             }
         }
 
@@ -1028,12 +1258,13 @@ void iMouse(int button, int state, int mx, int my)
         {
             if(mx>=200 && mx<=350 && my>=390 && my<=435 )
             {
-                 //iSetTimer
+                stopAllGameTimers();
                  difficulty=9;
-                 initializeGame(9);
                   scrollInterval = 14000;
+                 initializeGame(9);
             }
-         }
+        }
+
         if(gamestate==statePlay)
         {
             if(mx>=(nextB.x - BUBBLE_RADIUS)&& my>=(nextB.y - BUBBLE_RADIUS) && mx<=(nextB.x + BUBBLE_RADIUS) && my<=(nextB.y + BUBBLE_RADIUS) )
@@ -1042,7 +1273,7 @@ void iMouse(int button, int state, int mx, int my)
                 shooterB=nextB;
                 nextB=swapB;
             }
-            if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN )//&& angle>=10 && angle<=170) 
+            if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN )
             {
                 if (!shooterB.isMoving) 
                 {
@@ -1052,16 +1283,43 @@ void iMouse(int button, int state, int mx, int my)
                     shooterB.dy = BUBBLE_SPEED * sin(angleRad);
                 }
             }
+            if (mx >= 520 && mx <= 550 && my >= 670 && my <= 690)
+            {
+                gamestate = statePause;
+            }
+        }
+
+        if (gamestate == statePause)
+        {
+            if(mx >= 250 && mx <= 350 && my >= 530 && my <= 560)
+            {
+               if(sound) 
+               {
+                sound = 0;
+                iPauseSound(bgid);
+               }
+               else 
+               {
+               sound = 1;
+               iResumeSound(bgid);
+               } 
+            }
         }
 
         if (gamestate == stateGameOver) 
         {
             if (mx >= 240 && mx <= 360 && my >= 200 && my <= 240) 
             {
-                initializeGame(5); 
+                initializeGame(difficulty); 
             }
         }
-
+        if (gamestate == stateWin) 
+{
+    if (mx >= 200 && mx <= 400 && my >= 200 && my <= 240) 
+    {
+        initializeGame(difficulty); 
+    }
+}
 
     }
     /*if (button == GLUT_RIGHT_BUTTON && state == GLUT_DOWN)
@@ -1080,21 +1338,30 @@ void iKeyboard(unsigned char key)
     switch (key)
     {
         case 'b':
-        {
-            if (gamestate == stateEasy || gamestate == stateMedium || gamestate == stateHard)
-        gamestate = stateLevel;  
-    else if (gamestate == stateHelp || gamestate == stateAbout || gamestate == stateLevel)
-        gamestate = stateMenu;  
-    else if (gamestate == statePlay)
-        gamestate = stateMenu; 
-        else if (gamestate == statePlay || gamestate == stateGameOver)
-    gamestate = stateMenu;
-            break;
+    {
+        if (gamestate == statePlay || gamestate == stateGameOver || gamestate == stateWin) {
+            stopAllGameTimers();
+            gameEnded = true; 
         }
-    case 'q':
-        // do something with 'q'
+        
+        if (gamestate == stateEasy || gamestate == stateMedium || gamestate == stateHard)
+            gamestate = stateLevel;  
+        else if (gamestate == stateHelp || gamestate == stateAbout || gamestate == stateLevel)
+            gamestate = stateMenu;  
+        else if (gamestate == statePlay || gamestate == stateGameOver || gamestate == stateWin)
+            gamestate = stateMenu;
         break;
-    // place your codes for other keys here
+    }
+
+    case 'r':
+    {
+        if(gamestate == statePause)
+        {
+            gamestate = statePlay;
+        }
+        break;
+    }
+
     default:
         break;
     }
@@ -1108,18 +1375,20 @@ void iSpecialKeyboard(unsigned char key)
     {
         if(gamestate==statePlay)
         {
-            angle-=5;
+            angle-=2;
         }
         break;
     }
+
     case GLUT_KEY_LEFT:
     {
         if(gamestate==statePlay)
         {
-            angle+=5;
+            angle+=2;
         }
         break;
     }
+
     case GLUT_KEY_UP:
     {
     if(gamestate==statePlay)
@@ -1135,6 +1404,7 @@ void iSpecialKeyboard(unsigned char key)
       
         break;
     }
+
     default:
         break;
     }
@@ -1154,17 +1424,13 @@ int main(int argc, char *argv[])
     glutInitWindowPosition(100, 100);
     srand(42);
 
-    loadImage();
-    Shooter();
-    gameLoopTimerId = iSetTimer(20, updateGame);
-    if(Srow==0)
-    {
-        iPauseTimer(scrollTimerId);
-    }
+    gamestate = stateMenu;
+    gameEnded = false;
 
+    loadImage();
+    loadHighScores();
 
     tid = iSetTimer(2000, stopload);
-
 
      iInitializeSound();
     bgid = iPlaySound("sound/gamebg.wav", true, 80);
@@ -1175,8 +1441,3 @@ int main(int argc, char *argv[])
 
     return 0;
 }
-
-
-
-
-
